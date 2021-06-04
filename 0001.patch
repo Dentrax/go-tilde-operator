@@ -1,26 +1,22 @@
-From 46271a7066ad8fb76872fd0243a4d617987b9148 Mon Sep 17 00:00:00 2001
+From 4fc3ddf0bd69d21eba55c6869796f9537834ff6c Mon Sep 17 00:00:00 2001
 From: Dentrax <furkan.turkal@trendyol.com>
-Date: Mon, 31 May 2021 09:48:47 +0300
-Subject: [PATCH] cmd/compile: add Tilde (OCOM) op, remove XOR unary
+Date: Fri, 4 Jun 2021 14:21:49 +0300
+Subject: [PATCH] cmd/compile: add Tilde (OCOM), deprecate XOR unary
 
 Using ^x in other languages causes an invalid compile
 and throws a syntax error. To be more align with the
 usage of the ~ unary op just like in other languages,
-it's better to remove the use of ^x.
+it's had better to deprecate the usage of ^x.
 
-This commit renames OBITNOT OpCode to OCOM, since we
-already use COM opcode in the assembly calls in order to
-do bitwise not operations.
-
-This commit includes a language change. And will not be
-compiled successfully. The next commit will refactor
-the all the ^x usages to ~x.
+This commit renames OBITNOT op to OCOM, since we
+already use COM opcode in the assembly calls, in order to
+do _bitwise not_ operations.
 
 Signed-off-by: Dentrax <furkan.turkal@trendyol.com>
 ---
  src/cmd/compile/internal/escape/escape.go     |  6 ++---
  src/cmd/compile/internal/ir/expr.go           |  4 ++--
- src/cmd/compile/internal/ir/fmt.go            |  6 ++---
+ src/cmd/compile/internal/ir/fmt.go            |  5 ++--
  src/cmd/compile/internal/ir/node.go           |  2 +-
  src/cmd/compile/internal/ir/op_string.go      | 10 ++++----
  src/cmd/compile/internal/noder/noder.go       |  9 +++----
@@ -37,10 +33,10 @@ Signed-off-by: Dentrax <furkan.turkal@trendyol.com>
  src/cmd/compile/internal/walk/walk.go         |  2 +-
  test/fixedbugs/issue23587.go                  |  3 ++-
  test/used.go                                  |  2 +-
- 19 files changed, 53 insertions(+), 51 deletions(-)
+ 19 files changed, 52 insertions(+), 51 deletions(-)
 
 diff --git a/src/cmd/compile/internal/escape/escape.go b/src/cmd/compile/internal/escape/escape.go
-index b706d7d2c8..3031db9316 100644
+index 3ac7ff1ebe..2429cc93e1 100644
 --- a/src/cmd/compile/internal/escape/escape.go
 +++ b/src/cmd/compile/internal/escape/escape.go
 @@ -602,7 +602,7 @@ func (e *escape) exprSkipInit(k hole, n ir.Node) {
@@ -61,7 +57,7 @@ index b706d7d2c8..3031db9316 100644
  		n := n.(*ir.UnaryExpr)
  		e.unsafeValue(k, n.X)
  	case ir.OADD, ir.OSUB, ir.OOR, ir.OXOR, ir.OMUL, ir.ODIV, ir.OMOD, ir.OAND, ir.OANDNOT:
-@@ -1969,7 +1969,7 @@ func mayAffectMemory(n ir.Node) bool {
+@@ -1977,7 +1977,7 @@ func mayAffectMemory(n ir.Node) bool {
  		n := n.(*ir.ConvExpr)
  		return mayAffectMemory(n.X)
  
@@ -71,7 +67,7 @@ index b706d7d2c8..3031db9316 100644
  		return mayAffectMemory(n.X)
  
 diff --git a/src/cmd/compile/internal/ir/expr.go b/src/cmd/compile/internal/ir/expr.go
-index a9f8c6eae5..9a3f92873d 100644
+index f70645f079..8a3419563b 100644
 --- a/src/cmd/compile/internal/ir/expr.go
 +++ b/src/cmd/compile/internal/ir/expr.go
 @@ -670,7 +670,7 @@ func (n *UnaryExpr) SetOp(op Op) {
@@ -93,26 +89,18 @@ index a9f8c6eae5..9a3f92873d 100644
  		r := r.(*UnaryExpr)
  		return SameSafeExpr(l.X, r.X)
 diff --git a/src/cmd/compile/internal/ir/fmt.go b/src/cmd/compile/internal/ir/fmt.go
-index 8eb1cffc59..cedda1e691 100644
+index f2ae0f7606..a1e62799f8 100644
 --- a/src/cmd/compile/internal/ir/fmt.go
 +++ b/src/cmd/compile/internal/ir/fmt.go
 @@ -41,7 +41,6 @@ var OpNames = []string{
- 	OCASE:     "case",
- 	OCLOSE:    "close",
- 	OCOMPLEX:  "complex",
--	OBITNOT:   "^",
- 	OCONTINUE: "continue",
- 	OCOPY:     "copy",
- 	ODELETE:   "delete",
-@@ -64,6 +63,7 @@ var OpNames = []string{
- 	OLT:       "<",
- 	OMAKE:     "make",
- 	ONEG:      "-",
-+	OCOM:      "~",
- 	OMOD:      "%",
- 	OMUL:      "*",
- 	ONEW:      "new",
-@@ -237,7 +237,7 @@ var OpPrec = []int{
+ 	OCASE:        "case",
+ 	OCLOSE:       "close",
+ 	OCOMPLEX:     "complex",
+-	OBITNOT:      "^",
+ 	OCONTINUE:    "continue",
+ 	OCOPY:        "copy",
+ 	ODELETE:      "delete",
+@@ -241,7 +240,7 @@ var OpPrec = []int{
  	OMETHEXPR:      8,
  	OPLUS:          7,
  	ONOT:           7,
@@ -121,7 +109,7 @@ index 8eb1cffc59..cedda1e691 100644
  	ONEG:           7,
  	OADDR:          7,
  	ODEREF:         7,
-@@ -866,7 +866,7 @@ func exprFmt(n Node, s fmt.State, prec int) {
+@@ -870,7 +869,7 @@ func exprFmt(n Node, s fmt.State, prec int) {
  		n := n.(*MakeExpr)
  		fmt.Fprintf(s, "makeslicecopy(%v, %v, %v)", n.Type(), n.Len, n.Cap)
  
@@ -131,7 +119,7 @@ index 8eb1cffc59..cedda1e691 100644
  		n := n.(*UnaryExpr)
  		fmt.Fprintf(s, "%v", n.Op())
 diff --git a/src/cmd/compile/internal/ir/node.go b/src/cmd/compile/internal/ir/node.go
-index cbc7681d12..03f0ca35c3 100644
+index af559cc082..a50bdc868b 100644
 --- a/src/cmd/compile/internal/ir/node.go
 +++ b/src/cmd/compile/internal/ir/node.go
 @@ -221,9 +221,9 @@ const (
@@ -146,7 +134,7 @@ index cbc7681d12..03f0ca35c3 100644
  	OPANIC       // panic(X)
  	OPRINT       // print(List)
 diff --git a/src/cmd/compile/internal/ir/op_string.go b/src/cmd/compile/internal/ir/op_string.go
-index 776a5c1e8d..18fa5e7c70 100644
+index 405a0c6b3c..1d813f6c47 100644
 --- a/src/cmd/compile/internal/ir/op_string.go
 +++ b/src/cmd/compile/internal/ir/op_string.go
 @@ -93,9 +93,9 @@ func _() {
@@ -162,23 +150,23 @@ index 776a5c1e8d..18fa5e7c70 100644
  	_ = x[OOROR-88]
  	_ = x[OPANIC-89]
  	_ = x[OPRINT-90]
-@@ -163,9 +163,9 @@ func _() {
- 	_ = x[OEND-152]
+@@ -165,9 +165,9 @@ func _() {
+ 	_ = x[OEND-154]
  }
  
--const _Op_name = "XXXNAMENONAMETYPEPACKLITERALNILADDSUBORXORADDSTRADDRANDANDAPPENDBYTES2STRBYTES2STRTMPRUNES2STRSTR2BYTESSTR2BYTESTMPSTR2RUNESSLICE2ARRPTRASAS2AS2DOTTYPEAS2FUNCAS2MAPRAS2RECVASOPCALLCALLFUNCCALLMETHCALLINTERCALLPARTCAPCLOSECLOSURECOMPLITMAPLITSTRUCTLITARRAYLITSLICELITPTRLITCONVCONVIFACECONVNOPCOPYDCLDCLFUNCDCLCONSTDCLTYPEDELETEDOTDOTPTRDOTMETHDOTINTERXDOTDOTTYPEDOTTYPE2EQNELTLEGEGTDEREFINDEXINDEXMAPKEYSTRUCTKEYLENMAKEMAKECHANMAKEMAPMAKESLICEMAKESLICECOPYMULDIVMODLSHRSHANDANDNOTNEWNOTBITNOTPLUSNEGORORPANICPRINTPRINTNPARENSENDSLICESLICEARRSLICESTRSLICE3SLICE3ARRSLICEHEADERRECOVERRECVRUNESTRSELRECV2IOTAREALIMAGCOMPLEXALIGNOFOFFSETOFSIZEOFMETHEXPRBLOCKBREAKCASECONTINUEDEFERFALLFORFORUNTILGOTOIFLABELGORANGERETURNSELECTSWITCHTYPESWFUNCINSTTCHANTMAPTSTRUCTTINTERTFUNCTARRAYTSLICEINLCALLEFACEITABIDATASPTRCFUNCCHECKNILVARDEFVARKILLVARLIVERESULTINLMARKLINKSYMOFFSETTAILCALLGETGEND"
-+const _Op_name = "XXXNAMENONAMETYPEPACKLITERALNILADDSUBORXORADDSTRADDRANDANDAPPENDBYTES2STRBYTES2STRTMPRUNES2STRSTR2BYTESSTR2BYTESTMPSTR2RUNESSLICE2ARRPTRASAS2AS2DOTTYPEAS2FUNCAS2MAPRAS2RECVASOPCALLCALLFUNCCALLMETHCALLINTERCALLPARTCAPCLOSECLOSURECOMPLITMAPLITSTRUCTLITARRAYLITSLICELITPTRLITCONVCONVIFACECONVNOPCOPYDCLDCLFUNCDCLCONSTDCLTYPEDELETEDOTDOTPTRDOTMETHDOTINTERXDOTDOTTYPEDOTTYPE2EQNELTLEGEGTDEREFINDEXINDEXMAPKEYSTRUCTKEYLENMAKEMAKECHANMAKEMAPMAKESLICEMAKESLICECOPYMULDIVMODLSHRSHANDANDNOTNEWNOTPLUSNEGCOMORORPANICPRINTPRINTNPARENSENDSLICESLICEARRSLICESTRSLICE3SLICE3ARRSLICEHEADERRECOVERRECVRUNESTRSELRECV2IOTAREALIMAGCOMPLEXALIGNOFOFFSETOFSIZEOFMETHEXPRBLOCKBREAKCASECONTINUEDEFERFALLFORFORUNTILGOTOIFLABELGORANGERETURNSELECTSWITCHTYPESWFUNCINSTTCHANTMAPTSTRUCTTINTERTFUNCTARRAYTSLICEINLCALLEFACEITABIDATASPTRCFUNCCHECKNILVARDEFVARKILLVARLIVERESULTINLMARKLINKSYMOFFSETTAILCALLGETGEND"
+-const _Op_name = "XXXNAMENONAMETYPEPACKLITERALNILADDSUBORXORADDSTRADDRANDANDAPPENDBYTES2STRBYTES2STRTMPRUNES2STRSTR2BYTESSTR2BYTESTMPSTR2RUNESSLICE2ARRPTRASAS2AS2DOTTYPEAS2FUNCAS2MAPRAS2RECVASOPCALLCALLFUNCCALLMETHCALLINTERCALLPARTCAPCLOSECLOSURECOMPLITMAPLITSTRUCTLITARRAYLITSLICELITPTRLITCONVCONVIFACECONVNOPCOPYDCLDCLFUNCDCLCONSTDCLTYPEDELETEDOTDOTPTRDOTMETHDOTINTERXDOTDOTTYPEDOTTYPE2EQNELTLEGEGTDEREFINDEXINDEXMAPKEYSTRUCTKEYLENMAKEMAKECHANMAKEMAPMAKESLICEMAKESLICECOPYMULDIVMODLSHRSHANDANDNOTNEWNOTBITNOTPLUSNEGORORPANICPRINTPRINTNPARENSENDSLICESLICEARRSLICESTRSLICE3SLICE3ARRSLICEHEADERRECOVERRECVRUNESTRSELRECV2IOTAREALIMAGCOMPLEXALIGNOFOFFSETOFSIZEOFUNSAFEADDUNSAFESLICEMETHEXPRBLOCKBREAKCASECONTINUEDEFERFALLFORFORUNTILGOTOIFLABELGORANGERETURNSELECTSWITCHTYPESWFUNCINSTTCHANTMAPTSTRUCTTINTERTFUNCTARRAYTSLICEINLCALLEFACEITABIDATASPTRCFUNCCHECKNILVARDEFVARKILLVARLIVERESULTINLMARKLINKSYMOFFSETTAILCALLGETGEND"
++const _Op_name = "XXXNAMENONAMETYPEPACKLITERALNILADDSUBORXORADDSTRADDRANDANDAPPENDBYTES2STRBYTES2STRTMPRUNES2STRSTR2BYTESSTR2BYTESTMPSTR2RUNESSLICE2ARRPTRASAS2AS2DOTTYPEAS2FUNCAS2MAPRAS2RECVASOPCALLCALLFUNCCALLMETHCALLINTERCALLPARTCAPCLOSECLOSURECOMPLITMAPLITSTRUCTLITARRAYLITSLICELITPTRLITCONVCONVIFACECONVNOPCOPYDCLDCLFUNCDCLCONSTDCLTYPEDELETEDOTDOTPTRDOTMETHDOTINTERXDOTDOTTYPEDOTTYPE2EQNELTLEGEGTDEREFINDEXINDEXMAPKEYSTRUCTKEYLENMAKEMAKECHANMAKEMAPMAKESLICEMAKESLICECOPYMULDIVMODLSHRSHANDANDNOTNEWNOTPLUSNEGCOMORORPANICPRINTPRINTNPARENSENDSLICESLICEARRSLICESTRSLICE3SLICE3ARRSLICEHEADERRECOVERRECVRUNESTRSELRECV2IOTAREALIMAGCOMPLEXALIGNOFOFFSETOFSIZEOFUNSAFEADDUNSAFESLICEMETHEXPRBLOCKBREAKCASECONTINUEDEFERFALLFORFORUNTILGOTOIFLABELGORANGERETURNSELECTSWITCHTYPESWFUNCINSTTCHANTMAPTSTRUCTTINTERTFUNCTARRAYTSLICEINLCALLEFACEITABIDATASPTRCFUNCCHECKNILVARDEFVARKILLVARLIVERESULTINLMARKLINKSYMOFFSETTAILCALLGETGEND"
  
--var _Op_index = [...]uint16{0, 3, 7, 13, 17, 21, 28, 31, 34, 37, 39, 42, 48, 52, 58, 64, 73, 85, 94, 103, 115, 124, 136, 138, 141, 151, 158, 165, 172, 176, 180, 188, 196, 205, 213, 216, 221, 228, 235, 241, 250, 258, 266, 272, 276, 285, 292, 296, 299, 306, 314, 321, 327, 330, 336, 343, 351, 355, 362, 370, 372, 374, 376, 378, 380, 382, 387, 392, 400, 403, 412, 415, 419, 427, 434, 443, 456, 459, 462, 465, 468, 471, 474, 480, 483, 486, 492, 496, 499, 503, 508, 513, 519, 524, 528, 533, 541, 549, 555, 564, 575, 582, 586, 593, 601, 605, 609, 613, 620, 627, 635, 641, 649, 654, 659, 663, 671, 676, 680, 683, 691, 695, 697, 702, 704, 709, 715, 721, 727, 733, 741, 746, 750, 757, 763, 768, 774, 780, 787, 792, 796, 801, 805, 810, 818, 824, 831, 838, 844, 851, 864, 872, 876, 879}
-+var _Op_index = [...]uint16{0, 3, 7, 13, 17, 21, 28, 31, 34, 37, 39, 42, 48, 52, 58, 64, 73, 85, 94, 103, 115, 124, 136, 138, 141, 151, 158, 165, 172, 176, 180, 188, 196, 205, 213, 216, 221, 228, 235, 241, 250, 258, 266, 272, 276, 285, 292, 296, 299, 306, 314, 321, 327, 330, 336, 343, 351, 355, 362, 370, 372, 374, 376, 378, 380, 382, 387, 392, 400, 403, 412, 415, 419, 427, 434, 443, 456, 459, 462, 465, 468, 471, 474, 480, 483, 486, 490, 493, 496, 500, 505, 510, 516, 521, 525, 530, 538, 546, 552, 561, 572, 579, 583, 590, 598, 602, 606, 610, 617, 624, 632, 638, 646, 651, 656, 660, 668, 673, 677, 680, 688, 692, 694, 699, 701, 706, 712, 718, 724, 730, 738, 743, 747, 754, 760, 765, 771, 777, 784, 789, 793, 798, 802, 807, 815, 821, 828, 835, 841, 848, 861, 869, 873, 876}
+-var _Op_index = [...]uint16{0, 3, 7, 13, 17, 21, 28, 31, 34, 37, 39, 42, 48, 52, 58, 64, 73, 85, 94, 103, 115, 124, 136, 138, 141, 151, 158, 165, 172, 176, 180, 188, 196, 205, 213, 216, 221, 228, 235, 241, 250, 258, 266, 272, 276, 285, 292, 296, 299, 306, 314, 321, 327, 330, 336, 343, 351, 355, 362, 370, 372, 374, 376, 378, 380, 382, 387, 392, 400, 403, 412, 415, 419, 427, 434, 443, 456, 459, 462, 465, 468, 471, 474, 480, 483, 486, 492, 496, 499, 503, 508, 513, 519, 524, 528, 533, 541, 549, 555, 564, 575, 582, 586, 593, 601, 605, 609, 613, 620, 627, 635, 641, 650, 661, 669, 674, 679, 683, 691, 696, 700, 703, 711, 715, 717, 722, 724, 729, 735, 741, 747, 753, 761, 766, 770, 777, 783, 788, 794, 800, 807, 812, 816, 821, 825, 830, 838, 844, 851, 858, 864, 871, 884, 892, 896, 899}
++var _Op_index = [...]uint16{0, 3, 7, 13, 17, 21, 28, 31, 34, 37, 39, 42, 48, 52, 58, 64, 73, 85, 94, 103, 115, 124, 136, 138, 141, 151, 158, 165, 172, 176, 180, 188, 196, 205, 213, 216, 221, 228, 235, 241, 250, 258, 266, 272, 276, 285, 292, 296, 299, 306, 314, 321, 327, 330, 336, 343, 351, 355, 362, 370, 372, 374, 376, 378, 380, 382, 387, 392, 400, 403, 412, 415, 419, 427, 434, 443, 456, 459, 462, 465, 468, 471, 474, 480, 483, 486, 490, 493, 496, 500, 505, 510, 516, 521, 525, 530, 538, 546, 552, 561, 572, 579, 583, 590, 598, 602, 606, 610, 617, 624, 632, 638, 647, 658, 666, 671, 676, 680, 688, 693, 697, 700, 708, 712, 714, 719, 721, 726, 732, 738, 744, 750, 758, 763, 767, 774, 780, 785, 791, 797, 804, 809, 813, 818, 822, 827, 835, 841, 848, 855, 861, 868, 881, 889, 893, 896}
  
  func (i Op) String() string {
  	if i >= Op(len(_Op_index)-1) {
 diff --git a/src/cmd/compile/internal/noder/noder.go b/src/cmd/compile/internal/noder/noder.go
-index 4c7c9fc322..430ed72a94 100644
+index 5fcad096c2..6e108bc1e9 100644
 --- a/src/cmd/compile/internal/noder/noder.go
 +++ b/src/cmd/compile/internal/noder/noder.go
-@@ -1372,10 +1372,11 @@ var unOps = [...]ir.Op{
+@@ -1369,10 +1369,11 @@ var unOps = [...]ir.Op{
  	syntax.Mul:  ir.ODEREF,
  	syntax.And:  ir.OADDR,
  
@@ -195,10 +183,10 @@ index 4c7c9fc322..430ed72a94 100644
  
  func (p *noder) unOp(op syntax.Operator) ir.Op {
 diff --git a/src/cmd/compile/internal/ssagen/ssa.go b/src/cmd/compile/internal/ssagen/ssa.go
-index 10f02fc987..e5d882f8ad 100644
+index 004e084f72..ca87c69586 100644
 --- a/src/cmd/compile/internal/ssagen/ssa.go
 +++ b/src/cmd/compile/internal/ssagen/ssa.go
-@@ -2038,14 +2038,14 @@ var opToSSA = map[opAndType]ssa.Op{
+@@ -2052,14 +2052,14 @@ var opToSSA = map[opAndType]ssa.Op{
  	opAndType{ir.ONEG, types.TFLOAT32}: ssa.OpNeg32F,
  	opAndType{ir.ONEG, types.TFLOAT64}: ssa.OpNeg64F,
  
@@ -221,7 +209,7 @@ index 10f02fc987..e5d882f8ad 100644
  
  	opAndType{ir.OIMAG, types.TCOMPLEX64}:  ssa.OpComplexImag,
  	opAndType{ir.OIMAG, types.TCOMPLEX128}: ssa.OpComplexImag,
-@@ -2886,7 +2886,7 @@ func (s *state) expr(n ir.Node) *ssa.Value {
+@@ -2900,7 +2900,7 @@ func (s *state) expr(n ir.Node) *ssa.Value {
  		n := n.(*ir.BinaryExpr)
  		a := s.expr(n.X)
  		b := s.expr(n.Y)
@@ -230,7 +218,7 @@ index 10f02fc987..e5d882f8ad 100644
  		return s.newValue2(s.ssaOp(ir.OAND, n.Type()), a.Type, a, b)
  	case ir.OLSH, ir.ORSH:
  		n := n.(*ir.BinaryExpr)
-@@ -2962,7 +2962,7 @@ func (s *state) expr(n ir.Node) *ssa.Value {
+@@ -2976,7 +2976,7 @@ func (s *state) expr(n ir.Node) *ssa.Value {
  				s.newValue1(negop, tp, s.newValue1(ssa.OpComplexImag, tp, a)))
  		}
  		return s.newValue1(s.ssaOp(n.Op(), n.Type()), a.Type, a)
@@ -253,7 +241,7 @@ index 0c97b6de74..ecc9af29b9 100644
  			ir.ONEG,
  			ir.OOROR,
 diff --git a/src/cmd/compile/internal/syntax/parser.go b/src/cmd/compile/internal/syntax/parser.go
-index 80250212dd..567fc866fe 100644
+index e7b8840b33..32d2a387d7 100644
 --- a/src/cmd/compile/internal/syntax/parser.go
 +++ b/src/cmd/compile/internal/syntax/parser.go
 @@ -753,7 +753,7 @@ func (p *parser) unaryExpr() Expr {
@@ -266,7 +254,7 @@ index 80250212dd..567fc866fe 100644
  			x.pos = p.pos()
  			x.Op = p.op
 diff --git a/src/cmd/compile/internal/typecheck/const.go b/src/cmd/compile/internal/typecheck/const.go
-index 9b3a27b2d8..20c3caafa8 100644
+index 5a35eeade9..31d98e0973 100644
 --- a/src/cmd/compile/internal/typecheck/const.go
 +++ b/src/cmd/compile/internal/typecheck/const.go
 @@ -132,7 +132,7 @@ func convlit1(n ir.Node, t *types.Type, explicit bool, context func() string) ir
@@ -322,7 +310,7 @@ index 9b3a27b2d8..20c3caafa8 100644
  
  // OrigConst returns an OLITERAL with orig n and value v.
 diff --git a/src/cmd/compile/internal/typecheck/iexport.go b/src/cmd/compile/internal/typecheck/iexport.go
-index 5955b3d358..42e6d30f15 100644
+index 64d68ef625..5ecd316079 100644
 --- a/src/cmd/compile/internal/typecheck/iexport.go
 +++ b/src/cmd/compile/internal/typecheck/iexport.go
 @@ -1760,7 +1760,7 @@ func (w *exportWriter) expr(n ir.Node) {
@@ -335,10 +323,10 @@ index 5955b3d358..42e6d30f15 100644
  		w.op(n.Op())
  		w.pos(n.Pos())
 diff --git a/src/cmd/compile/internal/typecheck/iimport.go b/src/cmd/compile/internal/typecheck/iimport.go
-index 642abe61ba..85f08b76ab 100644
+index a5ddbb5a74..cd5244fa6e 100644
 --- a/src/cmd/compile/internal/typecheck/iimport.go
 +++ b/src/cmd/compile/internal/typecheck/iimport.go
-@@ -1339,7 +1339,7 @@ func (r *importReader) node() ir.Node {
+@@ -1344,7 +1344,7 @@ func (r *importReader) node() ir.Node {
  		return n
  
  	// unary expressions
@@ -348,10 +336,10 @@ index 642abe61ba..85f08b76ab 100644
  		if go117ExportTypes {
  			n.SetType(r.typ())
 diff --git a/src/cmd/compile/internal/typecheck/typecheck.go b/src/cmd/compile/internal/typecheck/typecheck.go
-index ab493e0caa..4ee0197160 100644
+index 95f7b50259..6e7a4d7693 100644
 --- a/src/cmd/compile/internal/typecheck/typecheck.go
 +++ b/src/cmd/compile/internal/typecheck/typecheck.go
-@@ -665,7 +665,7 @@ func typecheck1(n ir.Node, top int) ir.Node {
+@@ -671,7 +671,7 @@ func typecheck1(n ir.Node, top int) ir.Node {
  		n.SetType(t)
  		return n
  
@@ -361,10 +349,10 @@ index ab493e0caa..4ee0197160 100644
  		return tcUnaryArith(n)
  
 diff --git a/src/cmd/compile/internal/typecheck/universe.go b/src/cmd/compile/internal/typecheck/universe.go
-index f04dcb671c..a68901a7a6 100644
+index de185ab944..67a251c369 100644
 --- a/src/cmd/compile/internal/typecheck/universe.go
 +++ b/src/cmd/compile/internal/typecheck/universe.go
-@@ -310,7 +310,7 @@ func InitUniverse() {
+@@ -312,7 +312,7 @@ func InitUniverse() {
  	okfor[ir.ORSH] = okforand[:]
  
  	// unary
@@ -374,10 +362,10 @@ index f04dcb671c..a68901a7a6 100644
  	okfor[ir.ONOT] = okforbool[:]
  	okfor[ir.OPLUS] = okforarith[:]
 diff --git a/src/cmd/compile/internal/walk/assign.go b/src/cmd/compile/internal/walk/assign.go
-index c8342b4fa4..cf79aad42e 100644
+index 6d697a53ae..b99cadbd7d 100644
 --- a/src/cmd/compile/internal/walk/assign.go
 +++ b/src/cmd/compile/internal/walk/assign.go
-@@ -419,7 +419,6 @@ func readsMemory(n ir.Node) bool {
+@@ -426,7 +426,6 @@ func readsMemory(n ir.Node) bool {
  		ir.OAND,
  		ir.OANDAND,
  		ir.OANDNOT,
@@ -385,7 +373,7 @@ index c8342b4fa4..cf79aad42e 100644
  		ir.OCONV,
  		ir.OCONVIFACE,
  		ir.OCONVNOP,
-@@ -431,6 +430,7 @@ func readsMemory(n ir.Node) bool {
+@@ -438,6 +437,7 @@ func readsMemory(n ir.Node) bool {
  		ir.OMOD,
  		ir.OMUL,
  		ir.ONEG,
@@ -394,7 +382,7 @@ index c8342b4fa4..cf79aad42e 100644
  		ir.OOR,
  		ir.OOROR,
 diff --git a/src/cmd/compile/internal/walk/expr.go b/src/cmd/compile/internal/walk/expr.go
-index a50473db52..bd5fabc1c8 100644
+index 2fb907710b..dabed6104a 100644
 --- a/src/cmd/compile/internal/walk/expr.go
 +++ b/src/cmd/compile/internal/walk/expr.go
 @@ -97,7 +97,7 @@ func walkExpr1(n ir.Node, init *ir.Nodes) ir.Node {
@@ -407,10 +395,10 @@ index a50473db52..bd5fabc1c8 100644
  		n.X = walkExpr(n.X, init)
  		return n
 diff --git a/src/cmd/compile/internal/walk/walk.go b/src/cmd/compile/internal/walk/walk.go
-index 904587295a..ef74b2e7f3 100644
+index fe2c62cd4f..f7826a26b9 100644
 --- a/src/cmd/compile/internal/walk/walk.go
 +++ b/src/cmd/compile/internal/walk/walk.go
-@@ -338,7 +338,7 @@ func mayCall(n ir.Node) bool {
+@@ -339,7 +339,7 @@ func mayCall(n ir.Node) bool {
  
  		case ir.OLITERAL, ir.ONIL, ir.ONAME, ir.OLINKSYMOFFSET, ir.OMETHEXPR,
  			ir.OAND, ir.OANDNOT, ir.OLSH, ir.OOR, ir.ORSH, ir.OXOR, ir.OCOMPLEX, ir.OEFACE,
@@ -434,7 +422,7 @@ index 2308992347..64ac818012 100644
  
  func _(x int) {
 diff --git a/test/used.go b/test/used.go
-index 5bdc5a7318..b88d25bab1 100644
+index 5bdc5a7318..cdefa2b335 100644
 --- a/test/used.go
 +++ b/test/used.go
 @@ -111,7 +111,7 @@ func _() {
@@ -442,7 +430,7 @@ index 5bdc5a7318..b88d25bab1 100644
  	new(int)               // ERROR "new\(int\) .* not used"
  	!b                     // ERROR "!b .* not used"
 -	^x                     // ERROR "\^x .* not used"
-+	^x                     // ERROR "\~x .* not used|is not used""
++	^x                     // ERROR "COMx evaluated but not used|is not used"
  	+x                     // ERROR "\+x .* not used"
  	-x                     // ERROR "-x .* not used"
  	b || b                 // ERROR "b \|\| b .* not used"
