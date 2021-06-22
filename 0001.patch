@@ -1,4 +1,4 @@
-From 4fc3ddf0bd69d21eba55c6869796f9537834ff6c Mon Sep 17 00:00:00 2001
+From 59f714c3481373441681a969ba810624dc9db117 Mon Sep 17 00:00:00 2001
 From: Dentrax <furkan.turkal@trendyol.com>
 Date: Fri, 4 Jun 2021 14:21:49 +0300
 Subject: [PATCH] cmd/compile: add Tilde (OCOM), deprecate XOR unary
@@ -16,7 +16,7 @@ Signed-off-by: Dentrax <furkan.turkal@trendyol.com>
 ---
  src/cmd/compile/internal/escape/escape.go     |  6 ++---
  src/cmd/compile/internal/ir/expr.go           |  4 ++--
- src/cmd/compile/internal/ir/fmt.go            |  5 ++--
+ src/cmd/compile/internal/ir/fmt.go            |  6 ++---
  src/cmd/compile/internal/ir/node.go           |  2 +-
  src/cmd/compile/internal/ir/op_string.go      | 10 ++++----
  src/cmd/compile/internal/noder/noder.go       |  9 +++----
@@ -32,8 +32,7 @@ Signed-off-by: Dentrax <furkan.turkal@trendyol.com>
  src/cmd/compile/internal/walk/expr.go         |  2 +-
  src/cmd/compile/internal/walk/walk.go         |  2 +-
  test/fixedbugs/issue23587.go                  |  3 ++-
- test/used.go                                  |  2 +-
- 19 files changed, 52 insertions(+), 51 deletions(-)
+ 18 files changed, 52 insertions(+), 50 deletions(-)
 
 diff --git a/src/cmd/compile/internal/escape/escape.go b/src/cmd/compile/internal/escape/escape.go
 index 3ac7ff1ebe..2429cc93e1 100644
@@ -89,7 +88,7 @@ index f70645f079..8a3419563b 100644
  		r := r.(*UnaryExpr)
  		return SameSafeExpr(l.X, r.X)
 diff --git a/src/cmd/compile/internal/ir/fmt.go b/src/cmd/compile/internal/ir/fmt.go
-index f2ae0f7606..a1e62799f8 100644
+index f2ae0f7606..021f70dcb6 100644
 --- a/src/cmd/compile/internal/ir/fmt.go
 +++ b/src/cmd/compile/internal/ir/fmt.go
 @@ -41,7 +41,6 @@ var OpNames = []string{
@@ -100,7 +99,15 @@ index f2ae0f7606..a1e62799f8 100644
  	OCONTINUE:    "continue",
  	OCOPY:        "copy",
  	ODELETE:      "delete",
-@@ -241,7 +240,7 @@ var OpPrec = []int{
+@@ -64,6 +63,7 @@ var OpNames = []string{
+ 	OLT:          "<",
+ 	OMAKE:        "make",
+ 	ONEG:         "-",
++	OCOM:         "~",
+ 	OMOD:         "%",
+ 	OMUL:         "*",
+ 	ONEW:         "new",
+@@ -241,7 +241,7 @@ var OpPrec = []int{
  	OMETHEXPR:      8,
  	OPLUS:          7,
  	ONOT:           7,
@@ -109,7 +116,7 @@ index f2ae0f7606..a1e62799f8 100644
  	ONEG:           7,
  	OADDR:          7,
  	ODEREF:         7,
-@@ -870,7 +869,7 @@ func exprFmt(n Node, s fmt.State, prec int) {
+@@ -870,7 +870,7 @@ func exprFmt(n Node, s fmt.State, prec int) {
  		n := n.(*MakeExpr)
  		fmt.Fprintf(s, "makeslicecopy(%v, %v, %v)", n.Type(), n.Len, n.Cap)
  
@@ -421,19 +428,6 @@ index 2308992347..64ac818012 100644
  }
  
  func _(x int) {
-diff --git a/test/used.go b/test/used.go
-index 5bdc5a7318..cdefa2b335 100644
---- a/test/used.go
-+++ b/test/used.go
-@@ -111,7 +111,7 @@ func _() {
- 	x &^ x                 // ERROR "x &\^ x .* not used"
- 	new(int)               // ERROR "new\(int\) .* not used"
- 	!b                     // ERROR "!b .* not used"
--	^x                     // ERROR "\^x .* not used"
-+	^x                     // ERROR "COMx evaluated but not used|is not used"
- 	+x                     // ERROR "\+x .* not used"
- 	-x                     // ERROR "-x .* not used"
- 	b || b                 // ERROR "b \|\| b .* not used"
 -- 
 2.31.1
 
